@@ -25,7 +25,6 @@ globals
 
   ;; exemption design
   exemption-target-y
-  exemption-admin-cost
 
   ;; outcome variables
   healthy-access-rate
@@ -130,9 +129,9 @@ to set-default-values
   ;; A more burdensome exemption crossing is placed away from the direct route.
   set exemption-target-y 8
 
-  ;; Administrative / procedural burden of using an exemption.
-  ;; This represents application, enforcement, proof, waiting, or uncertainty cost.
-  set exemption-admin-cost 8
+;   ;; Administrative / procedural burden of using an exemption.
+;   ;; This represents application, enforcement, proof, waiting, or uncertainty cost.
+;   set exemption-admin-cost 0
 
   ;; Policy counters.
   set vehicle-crossings 0
@@ -210,7 +209,7 @@ to setup-people
 
     set shape "person"
     set color green
-    set size 1.1
+    set size 1.5
     set heading 90
 
     set mobility-capacity healthy-capacity
@@ -236,7 +235,7 @@ to setup-people
 
     set shape "person"
     set color orange
-    set size 1.3
+    set size 1.5
     set heading 90
 
     set mobility-capacity random-constrained-capacity
@@ -417,9 +416,6 @@ to move-horizontally
     [
       set exempt-vehicle-crossings exempt-vehicle-crossings + 1
       set used-exemption? true
-
-      ;; Add administrative/procedural burden once, at point of exemption use.
-      set travel-burden travel-burden + exemption-admin-cost
     ]
     [
       set non-exempt-vehicle-crossings non-exempt-vehicle-crossings + 1
@@ -560,6 +556,9 @@ to check-access
 
   if [service?] of patch-here
   [
+    ; move to random patch when reached services
+    move-to one-of patches with [service? and not any? turtles-here]
+
     set accessed? true
     set unable-to-access? false
     set failure-reason "none"
@@ -608,14 +607,14 @@ to update-appearance
   if accessed?
   [
     set color blue
-    set size 1
+    set size 1.5
   ]
   
   ; red = failed / unable to access
   if unable-to-access?
   [
     set color red
-    set size 1
+    set size 1.5
   ]
 
 end
@@ -917,7 +916,7 @@ end]]></code>
     <view x="368" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="-16" height="434" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="434" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="30" y="55" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
     <button x="30" y="110" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
-    <chooser x="30" y="165" height="60" variable="scenario" current="0" width="250" display="scenario">
+    <chooser x="30" y="165" height="60" variable="scenario" current="2" width="250" display="scenario">
       <choice type="string" value="baseline"></choice>
       <choice type="string" value="people-friendly-streets"></choice>
       <choice type="string" value="individual-exemption"></choice>
