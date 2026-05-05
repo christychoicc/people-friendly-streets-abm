@@ -1,0 +1,3 @@
+;; NetLogo Code Script
+;; Inclusive Access in People-Friendly Streets: An Agent-based Model
+;;
