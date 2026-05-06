@@ -99,35 +99,6 @@ end
 ;;
 ;; set all default values
 ;;
-; to set-default-values
-
-;   ;; population
-;   set num-healthy 30
-;   set num-constrained 30
-
-;   ;; mobility capacity
-;   set healthy-capacity 200
-;   set constrained-min-capacity 20
-;   set constrained-max-capacity 120
-;   set vehicle-need-threshold 85
-
-;   ;; movement speed, measured as patch-steps per tick
-;   set healthy-speed 2
-;   set constrained-walk-speed 1
-;   set vehicle-speed 3
-
-;   ;; movement burden per patch-step
-;   set healthy-move-cost 1
-;   set constrained-walk-cost 3.5
-;   set vehicle-move-cost 0.5
-
-;   ;; exemption crossing position
-;   set exemption-target-y 8
-
-;   ;; maximum length of one trip episode
-;   set max-ticks 150
-
-; end
 to set-default-values
 
   ;; vehicle need assumption
@@ -147,7 +118,7 @@ to set-default-values
 
   ;; fixed model assumptions
   set healthy-capacity 200
-  set exemption-target-y 8
+  set exemption-target-y 0
   set max-ticks 150
 
 end
