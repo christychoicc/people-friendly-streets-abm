@@ -32,6 +32,9 @@ globals
   accessibility-inequality                ; inequality calculated: mean-accessibility-healthy - mean-accessibility-constrained
 
   mean-detour-constrained                 ; average detour (moving up/ down) for constrained people to move to the exemption
+
+  accessibility-gini                      ; gini coefficient across all residents access scores: 0 = perfect equality, 1 = maximum inequality
+  exemption-uptake-rate                   ; percentage of exemption-eligible constrained residents who successfully accessed
 ]
 
 
@@ -43,8 +46,6 @@ turtles-own
 [
   mobility-capacity
   travel-burden
-;   trip-time
-;   movement-speed
   access-score
 
   accessed?
@@ -75,14 +76,19 @@ patches-own
 to setup
 
   ca
+  no-display
+
   set-default-values
   setup-patches
   setup-people
   update-results
 
   reset-ticks
+  
+  display
 
 end
+
 
 ;;
 ;; set all default values
@@ -119,7 +125,7 @@ to setup-patches
     set service? false
     set restricted? false
     set exemption? false
-    set pcolor gray - 2
+    set pcolor gray + 2
   ]
 
   ;; home/ residential area on the left of the world as green
@@ -179,9 +185,7 @@ to setup-people
     set heading 90
 
     set mobility-capacity healthy-capacity
-;     set movement-speed healthy-speed
     set travel-burden 0
-;     set trip-time 0
     set access-score 0
 
     set accessed? false
@@ -192,6 +196,19 @@ to setup-people
     set eligible-exemption? false
     set used-exemption? false
     set detour-distance 0
+
+    ; healthy people drive in baseline but forced to walk in restricted scenarios
+    if scenario = "baseline"
+    [
+      ; 80% of healthy people choose to drive in the baseline, typical car dependency idea
+      if random 100 < 80 [ set using-vehicle? true ]
+    ]
+
+    if scenario = "people-friendly-streets" or scenario = "individual-exemption"
+    [
+      ; mode-shift to walking: restriction applies to all healthy residents
+      set using-vehicle? false
+    ]
   ]
 
   ; constrianed people setup 
@@ -210,13 +227,12 @@ to setup-people
       random-float (constrained-max-capacity - constrained-min-capacity)
 
     set travel-burden 0
-;     set trip-time 0
     set access-score 0
 
     set accessed? false
     set unable-to-access? false
 
-    ; check if mobility capacity below a pre-defined score, the person need vehicle assistance
+    ; check if mobility capacity below a pre-defined score, the person will need vehicle assistance otherwise
     set needs-vehicle? mobility-capacity < vehicle-need-threshold 
     set eligible-exemption? false
     set using-vehicle? false
@@ -361,11 +377,11 @@ to move-towards-exemption
 
 end
 
+
 ;;
 ;; rules for people to move
 ;;
 to-report can-enter? [target-patch]
-
   ;; people walking can enter the restricted area cus restriction is for vehicles only
   if not using-vehicle?
   [
@@ -419,7 +435,12 @@ to add-travel-burden
 
   if using-vehicle?
   [
-    set travel-burden travel-burden + vehicle-move-cost
+    ; [FIX 2] count other vehicles sharing this patch to simulate traffic congestion
+    let traffic count turtles-here with [using-vehicle?]
+    ; base vehicle cost plus an additional penalty per extra vehicle on the same patch
+    let congestion-penalty (traffic - 1) * 0.2
+
+    set travel-burden travel-burden + vehicle-move-cost + congestion-penalty
     stop
   ]
 
@@ -530,6 +551,20 @@ to update-results
   set burden-gap mean-burden-constrained - mean-burden-healthy
   set accessibility-inequality mean-accessibility-healthy - mean-accessibility-constrained
 
+  ; gini coefficient calculated across all residents to measure overall accessibility inequality
+  set accessibility-gini calculate-gini
+
+  ; exemption uptake rate only meaningful in individual-exemption scenario
+  ifelse count constrained-residents with [eligible-exemption?] > 0
+  [
+    set exemption-uptake-rate
+      100 * count constrained-residents with [eligible-exemption? and accessed?] /
+      count constrained-residents with [eligible-exemption?]
+  ]
+  [
+    set exemption-uptake-rate 0
+  ]
+
 end
 
 
@@ -555,6 +590,30 @@ to calculate-access-score
 
   set access-score 0
 
+end
+
+
+;;
+;; gini coefficient across all residents access scores
+;; 0 = perfect equality, 1 = maximum inequality
+;;
+to-report calculate-gini
+
+  let scores sort [access-score] of turtles
+  let n length scores
+  let total sum scores
+
+  if total = 0 [ report 0 ]
+
+  let weighted-sum 0
+  let i 1
+  foreach scores [ s ->
+    set weighted-sum weighted-sum + i * s
+    set i i + 1
+  ]
+
+  report (2 * weighted-sum) / (n * total) - (n + 1) / n
+
 end]]></code>
   <widgets>
     <view x="368" wrappingAllowedX="false" y="10" frameRate="30.0" minPycor="-16" height="435" showTickCounter="true" patchSize="13.0" fontSize="10" wrappingAllowedY="false" width="435" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
@@ -567,21 +626,30 @@ end]]></code>
     </chooser>
     <monitor x="25" precision="17" y="75" height="60" fontSize="11" width="100" display="healthy-access-rate">healthy-access-rate</monitor>
     <monitor x="135" precision="17" y="75" height="60" fontSize="11" width="100" display="constrained-access-rate">constrained-access-rate</monitor>
-    <monitor x="245" precision="17" y="75" height="60" fontSize="11" width="100" display="access-rate-gap">access-rate-gap</monitor>
-    <monitor x="25" precision="17" y="140" height="60" fontSize="11" width="100" display="mean-accessibility-constrained">mean-accessibility-constrained</monitor>
-    <monitor x="135" precision="17" y="140" height="60" fontSize="11" width="100" display="mean-accessibility-healthy">mean-accessibility-healthy</monitor>
-    <monitor x="245" precision="17" y="140" height="60" fontSize="11" width="100" display="mean-burden-constrained">mean-burden-constrained</monitor>
-    <monitor x="25" precision="17" y="205" height="60" fontSize="11" width="100" display="accessibility-inequality">accessibility-inequality</monitor>
-    <monitor x="135" precision="17" y="205" height="60" fontSize="11" width="100" display="mean-detour-constrained">mean-detour-constrained</monitor>
-    <slider x="25" step="1" y="270" max="100" width="250" display="num-healthy" height="50" min="0" direction="Horizontal" default="70.0" variable="num-healthy"></slider>
-    <slider x="25" step="1" y="325" max="100" width="250" display="num-constrained" height="50" min="0" direction="Horizontal" default="30.0" variable="num-constrained"></slider>
-    <slider x="25" step="1" y="380" max="100" width="250" display="constrained-min-capacity" height="50" min="0" direction="Horizontal" default="20.0" variable="constrained-min-capacity"></slider>
-    <slider x="25" step="1" y="435" max="100" width="250" display="constrained-max-capacity" height="50" min="0" direction="Horizontal" default="80.0" variable="constrained-max-capacity"></slider>
+    <slider x="25" step="1" y="270" max="100" width="250" display="num-healthy" height="50" min="0" direction="Horizontal" default="50.0" variable="num-healthy"></slider>
+    <slider x="25" step="1" y="325" max="100" width="250" display="num-constrained" height="50" min="0" direction="Horizontal" default="20.0" variable="num-constrained"></slider>
+    <slider x="25" step="1" y="380" max="200" width="250" display="constrained-min-capacity" height="50" min="0" direction="Horizontal" default="20.0" variable="constrained-min-capacity"></slider>
+    <slider x="25" step="1" y="435" max="200" width="250" display="constrained-max-capacity" height="50" min="0" direction="Horizontal" default="100.0" variable="constrained-max-capacity"></slider>
     <chooser x="25" y="490" height="60" variable="vehicle-need-level" current="0" width="250" display="vehicle-need-level">
       <choice type="string" value="low"></choice>
       <choice type="string" value="medium"></choice>
       <choice type="string" value="high"></choice>
     </chooser>
+    <monitor x="25" precision="17" y="140" height="60" fontSize="11" width="100">mean-accessibility-healthy</monitor>
+    <monitor x="135" precision="17" y="140" height="60" fontSize="11" width="100">mean-accessibility-constrained</monitor>
+    <monitor x="135" precision="17" y="205" height="60" fontSize="11" width="100" display="mean-burden-constrained">mean-burden-constrained</monitor>
+    <monitor x="25" precision="17" y="205" height="60" fontSize="11" width="100">mean-burden-healthy</monitor>
+    <monitor x="240" precision="17" y="205" height="60" fontSize="11" width="100">burden-gap</monitor>
+    <monitor x="240" precision="17" y="140" height="60" fontSize="11" width="100" display="access-rate-gap">access-rate-gap</monitor>
+    <monitor x="240" precision="17" y="75" height="60" fontSize="11" width="100">exemption-uptake-rate</monitor>
+    <plot x="825" autoPlotX="true" yMax="1.0" autoPlotY="true" y="10" xMin="0.0" height="175" legend="false" xMax="150.0" yMin="0.0" width="230" display="gini over time">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="pen-1" color="-7500403" legend="true">
+        <setup></setup>
+        <update>plot accessibility-gini</update>
+      </pen>
+    </plot>
   </widgets>
   <info>## WHAT IS IT?
 
