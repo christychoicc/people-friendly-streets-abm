@@ -6,20 +6,8 @@
 
 globals
 [
-;   ;; population --> moved to sliders
-;   num-healthy
-;   num-constrained
-
-;   ;; capacities  --> moved to sliders
   healthy-capacity 
-;   constrained-min-capacity
-;   constrained-max-capacity
   vehicle-need-threshold
-
-  ;; movement speeds
-  healthy-speed
-  constrained-walk-speed
-  vehicle-speed
 
   ;; movement burden
   healthy-move-cost
@@ -37,7 +25,7 @@ globals
 
   mean-burden-healthy                     ; average travel burden experienced by healthy people 
   mean-burden-constrained                 ; average travel burden experienced by constrained people 
-  burden-gap                              ; gap calculated: mean-burden-healthy - mean-burden-constrained
+  burden-gap                              ; gap calculated: mean-burden-constrained - mean-burden-healthy
 
   mean-accessibility-healthy              ; average accessibility score for health people
   mean-accessibility-constrained          ; average accessibility score for constrained people
@@ -55,8 +43,8 @@ turtles-own
 [
   mobility-capacity
   travel-burden
-  trip-time
-  movement-speed
+;   trip-time
+;   movement-speed
   access-score
 
   accessed?
@@ -102,14 +90,9 @@ end
 to set-default-values
 
   ;; vehicle need assumption
-  if vehicle-need-level = "low"[set vehicle-need-threshold 60]
-  if vehicle-need-level = "medium"[set vehicle-need-threshold 85]
-  if vehicle-need-level = "high"[set vehicle-need-threshold 110]
-
-  ;; movement speed
-  set healthy-speed 2
-  set constrained-walk-speed 1
-  set vehicle-speed 3
+  if vehicle-need-level = "low" [set vehicle-need-threshold 60]
+  if vehicle-need-level = "medium" [set vehicle-need-threshold 85]
+  if vehicle-need-level = "high" [set vehicle-need-threshold 110]
 
   ;; movement burden per patch-step
   set healthy-move-cost 1
@@ -187,7 +170,8 @@ to setup-people
   ; healthy people setup
   create-healthy-residents num-healthy
   [
-    move-to one-of patches with [home? and not any? turtles-here]
+    ; allow multiple people start from the same "home" patch
+    move-to one-of patches with [home?]
 
     set shape "person"
     set color green
@@ -195,9 +179,9 @@ to setup-people
     set heading 90
 
     set mobility-capacity healthy-capacity
-    set movement-speed healthy-speed
+;     set movement-speed healthy-speed
     set travel-burden 0
-    set trip-time 0
+;     set trip-time 0
     set access-score 0
 
     set accessed? false
@@ -226,7 +210,7 @@ to setup-people
       random-float (constrained-max-capacity - constrained-min-capacity)
 
     set travel-burden 0
-    set trip-time 0
+;     set trip-time 0
     set access-score 0
 
     set accessed? false
@@ -254,14 +238,6 @@ to setup-people
       set eligible-exemption? needs-vehicle?
       set using-vehicle? needs-vehicle?
     ]
-
-    ifelse using-vehicle?
-    [
-      set movement-speed vehicle-speed
-    ]
-    [
-      set movement-speed constrained-walk-speed
-    ]
   ]
 
 end
@@ -270,17 +246,16 @@ end
 ;;
 ;; go 
 ;;
-
 to go
 
-  ; model to stop when people is declared success or failed to reach services
+  ; stop when everyone has either accessed the service or failed
   if all? turtles [accessed? or unable-to-access?]
   [
     update-results
     stop
   ]
 
-  ; model to stop when reached maximum ticks
+  ; stop when maximum ticks is reached
   if ticks >= max-ticks
   [
     ask turtles with [not accessed? and not unable-to-access?]
@@ -293,26 +268,16 @@ to go
     stop
   ]
 
+  ; each active resident moves one patch per tick
   ask turtles with [not accessed? and not unable-to-access?]
   [
-    ; add one to trip time 
-    set trip-time trip-time + 1
-    
-    repeat movement-speed
-    [
-      if not accessed? and not unable-to-access?
-      [
-        move-one-step
-        check-access
-        check-failure
-      ]
-    ]
-
+    move-one-step
+    check-access
+    check-failure
     update-appearance
   ]
 
   update-results
-
   tick
 
 end
