@@ -1,40 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.3" snapToGrid="true">
-  <code><![CDATA[;; 
+  <code><![CDATA[;;  
 ;; Inclusive Access in People-Friendly Streets
 ;;
 
 globals
 [
   healthy-capacity                  ;; mobility capacity for healthy people
-  healthy-move-cost                 ;; movement burden per step for healthy people
-  constrained-move-cost             ;; movement burden per step for constrained people
-  vehicle-move-cost                 ;; movement burden per step for vehicle
+  healthy-move-cost                 ;; movement cost per step for healthy people
+  constrained-move-cost             ;; movement cost per step for constrained people
+  vehicle-move-cost                 ;; movement cost per step for travelling with vehicle
   exemption-target-y                ;; y-coord of the orange exemption patch
-
+  
   left-road-x                       ;; x-coord of the left vertical road
   center-road-x                     ;; x-coord of the restricted centre road
   right-road-x                      ;; x-coord of the right vertical road
   top-road-y                        ;; y-coord of the top horizontal road
   middle-road-y                     ;; y-coord of the middle horizontal road
   bottom-road-y                     ;; y-coord of the bottom horizontal road
-  road-half-width                   ;; half width of each road corridor
+  road-width                   ;; half width of each road corridor
   zone-width                        ;; width of home/service edge zones
 
   healthy-done                      ;; number of completed journey (success/ failed) to services by healthy people
   constrained-done                  ;; number of completed journey (success/ failed) to services by constrained people
   healthy-accessed                  ;; number of sucessfully accessed services by healthy people
   constrained-accessed              ;; number of sucessfully accessed services by constrained people
-
   healthy-burden-total              ;; total travel burden for healthy people
   constrained-burden-total          ;; total travel burden for constrained people
-
   healthy-score-sum                 ;; accessibility score for healthy people
   constrained-score-sum             ;; accessibility score for constrained people
-
   eligible-done                     ;; number of exemption elegible people completed journey to services
   eligible-accessed                 ;; number of exemption elegible people successfully accessed services
-
   access-scores                     ;; list of access outcome scores for all completed agents
 ]
 
@@ -79,9 +75,9 @@ end
 ;; set default values
 ;;
 to set-defaults
-  set healthy-capacity 200             ;; assumption for healthy peopl
+  set healthy-capacity 200             ;; assumption for healthy people
   set healthy-move-cost 1              ;; assumption for healthy people
-  set constrained-move-cost 3.5
+  set constrained-move-cost 3.5        ;; assumption to represent higher mobility cost for people with mobility limitations (Wert et al., 2013)
   set vehicle-move-cost 0.5
   set exemption-target-y 0
   set left-road-x -16
@@ -90,7 +86,7 @@ to set-defaults
   set top-road-y 12
   set middle-road-y 0
   set bottom-road-y -12
-  set road-half-width 1
+  set road-width 1
   set zone-width 2
   set access-scores []
   
@@ -111,33 +107,30 @@ to setup-patches
     set horizontal-road? false
     set pcolor gray - 2
   ]
-
   ;; create road network
   ask patches with
   [
-    abs (pycor - top-road-y) <= road-half-width or
-    abs (pycor - middle-road-y) <= road-half-width or
-    abs (pycor - bottom-road-y) <= road-half-width or
-    abs (pxcor - left-road-x) <= road-half-width or
-    abs (pxcor - center-road-x) <= road-half-width or
-    abs (pxcor - right-road-x) <= road-half-width
+    abs (pycor - top-road-y) <= road-width or
+    abs (pycor - middle-road-y) <= road-width or
+    abs (pycor - bottom-road-y) <= road-width or
+    abs (pxcor - left-road-x) <= road-width or
+    abs (pxcor - center-road-x) <= road-width or
+    abs (pxcor - right-road-x) <= road-width
   ]
   [
     set road? true
     set pcolor gray + 1
   ]
-
-  ;; mark horizontal roads
+  ;; horizontal roads
   ask patches with
   [
-    abs (pycor - top-road-y) <= road-half-width or
-    abs (pycor - middle-road-y) <= road-half-width or
-    abs (pycor - bottom-road-y) <= road-half-width
+    abs (pycor - top-road-y) <= road-width or
+    abs (pycor - middle-road-y) <= road-width or
+    abs (pycor - bottom-road-y) <= road-width
   ]
   [
     set horizontal-road? true
   ]
-
   ;; create home patches on the left side of the world
   ask patches with
   [
@@ -148,7 +141,6 @@ to setup-patches
   [
     set home? true
   ]
-
   ;; create service patches on the right side of the world
   ask patches with
   [
@@ -159,14 +151,13 @@ to setup-patches
   [
     set service? true
   ]
-
   ;; create the vehicle restricted street corridor in the center
   ;; this covers the full width of the centre road, not only pxcor = 0
   if scenario != "baseline"
   [
     ask patches with
     [
-      abs (pxcor - center-road-x) <= road-half-width and road?
+      abs (pxcor - center-road-x) <= road-width and road?
     ]
     [
       set restricted? true
@@ -180,9 +171,9 @@ to setup-patches
   [
     ask patches with
     [
-      abs (pxcor - center-road-x) <= road-half-width and
-      pycor >= exemption-target-y - road-half-width and
-      pycor <= exemption-target-y + road-half-width and
+      abs (pxcor - center-road-x) <= road-width and
+      pycor >= exemption-target-y - road-width and
+      pycor <= exemption-target-y + road-width and
       road?
     ]
     [
@@ -199,7 +190,6 @@ end
 to go
   ;; create new people entering the model
   create-access-flow
-
   ;; move people who are still trying to access services
   ask turtles with [not accessed? and not unable-to-access?]
   [
@@ -207,26 +197,22 @@ to go
     check-access
     check-failure
   ]
-  
   ;; allow failed people to leave the model
   ask turtles with [unable-to-access? and recorded?]
   [
     leave-after-access
   ]
-  
   ;; allow people who accessed services to leave the model
   ask turtles with [accessed?]
   [
     leave-after-access
   ]
-
   ;; record people who failed to access services
   ask turtles with [unable-to-access? and not recorded?]
   [
     set color red
     record-result
   ]
-
   tick
 end
 
@@ -242,7 +228,6 @@ to create-access-flow
       create-person "healthy"
     ]
   ]
-
   repeat (people-from-flow constrained-access-flow)
   [
     if count turtles < max-active-people
@@ -262,7 +247,7 @@ to create-person [person-type]
   [
     home? and
     horizontal-road? and
-    abs (pxcor - left-road-x) <= road-half-width and
+    abs (pxcor - left-road-x) <= road-width and
     not any? turtles-here
   ]
 
@@ -278,7 +263,6 @@ to create-person [person-type]
       initialise-person one-of starts green healthy-capacity
     ]
   ]
-
   if person-type = "constrained"
   [
     create-constrained-peoples 1
@@ -289,7 +273,6 @@ to create-person [person-type]
         set cap constrained-min-capacity +
           random-float (constrained-max-capacity - constrained-min-capacity)
       ]
-
       initialise-person one-of starts orange cap
     ]
   ]
@@ -301,12 +284,10 @@ end
 ;;
 to initialise-person [start-patch start-color capacity]
   move-to start-patch
-
   set shape "person"
   set size 1
   set color start-color
   set heading 90
-
   set mobility-capacity capacity
   set travel-burden 0
   set access-score 0
@@ -315,7 +296,6 @@ to initialise-person [start-patch start-color capacity]
   set recorded? false
   set using-vehicle? false
   set eligible-exemption? false
-
   ;; healthy people can only use vehicles in baseline
   if breed = healthy-peoples
   [
@@ -326,7 +306,6 @@ to initialise-person [start-patch start-color capacity]
       set using-vehicle? true
     ]
   ]
-
   ;; constrained people use vehicle in baseline and exemption
   if breed = constrained-peoples
   [
@@ -358,7 +337,6 @@ to move-one-step
       stop
     ]
   ]
-
   move-right
 end
 
@@ -378,19 +356,16 @@ end
 to move-towards-exemption
   let target nobody
   let new-heading heading
-
   if pycor < exemption-target-y
   [
     set target patch-at 0 1
     set new-heading 0
   ]
-
   if pycor > exemption-target-y
   [
     set target patch-at 0 -1
     set new-heading 180
   ]
-
   move-to-target target new-heading
 end
 
@@ -404,25 +379,21 @@ to move-to-target [target new-heading]
     set unable-to-access? true
     stop
   ]
-
   if not can-enter? target
   [
     set unable-to-access? true
     stop
   ]
-
   let cost movement-cost
-
   ;; if the person cannot afford the next movement, they fail before moving
   if travel-burden + cost > mobility-capacity
   [
     set unable-to-access? true
     stop
   ]
-
   move-to target
   set heading new-heading
-  add-burden
+  set travel-burden travel-burden + cost
 end
 
 
@@ -434,17 +405,13 @@ to leave-after-access
   [
     set color blue
   ]
-
   set heading 90
-
   let target patch-at 1 0
-
   if target = nobody
   [
     die
     stop
   ]
-
   if [road?] of target
   [
     move-to target
@@ -461,6 +428,11 @@ end
 ;; check whether a target patch can be entered
 ;;
 to-report can-enter? [target]
+  if target = nobody
+  [
+    report false
+  ]
+
   if not [road?] of target
   [
     report false
@@ -481,24 +453,14 @@ to-report can-enter? [target]
   ;; vehicles cannot enter restricted roads in the people-friendly-streets scenario
   if scenario = "people-friendly-streets"
   [
-    if [restricted?] of target
-    [
-      report false
-    ]
-
-    report true
+    report not [restricted?] of target
   ]
 
   ;; vehicles can enter the restricted street only at the exemption crossing
   ;; in the individual exemption scenario
   if scenario = "individual-exemption"
   [
-    if [restricted?] of target and not [exemption?] of target
-    [
-      report false
-    ]
-
-    report true
+    report (not [restricted?] of target) or [exemption?] of target
   ]
 
   report true
@@ -513,40 +475,11 @@ to-report movement-cost
   [
     report vehicle-move-cost
   ]
-
-  if breed = healthy-peoples
-  [
-    report healthy-move-cost
-  ]
-
   if breed = constrained-peoples
   [
     report constrained-move-cost
   ]
-
   report healthy-move-cost
-end
-
-
-;;
-;; add movement burden
-;;
-to add-burden
-  if using-vehicle?
-  [
-    set travel-burden travel-burden + vehicle-move-cost
-    stop
-  ]
-
-  if breed = healthy-peoples
-  [
-    set travel-burden travel-burden + healthy-move-cost
-  ]
-
-  if breed = constrained-peoples
-  [
-    set travel-burden travel-burden + constrained-move-cost
-  ]
 end
 
 
@@ -568,7 +501,7 @@ end
 
 
 ;;
-;; check if a person failed because their mobility capacity is exhausted
+;; check if a person failed because mobility capacity is used up
 ;;
 to check-failure
   if not accessed? and travel-burden >= mobility-capacity
@@ -585,8 +518,7 @@ end
 to record-result
   set access-score 0
 
-  ;; accessibility score is only given if the person successfully accesses services
-  ;; the score is reduced by the share of mobility capacity used as travel burden
+  ;; give an accessibility score if the person successfully accesses services
   if accessed?
   [
     if mobility-capacity > 0
@@ -599,29 +531,23 @@ to record-result
       set access-score 0
     ]
   ]
-
   if breed = healthy-peoples
   [
     set healthy-done healthy-done + 1
-
     if accessed?
     [
       set healthy-accessed healthy-accessed + 1
     ]
-
     set healthy-burden-total healthy-burden-total + travel-burden
     set healthy-score-sum healthy-score-sum + access-score
   ]
-
   if breed = constrained-peoples
   [
     set constrained-done constrained-done + 1
-
     if accessed?
     [
       set constrained-accessed constrained-accessed + 1
     ]
-
     if eligible-exemption?
     [
       set eligible-done eligible-done + 1
@@ -631,11 +557,9 @@ to record-result
         set eligible-accessed eligible-accessed + 1
       ]
     ]
-
     set constrained-burden-total constrained-burden-total + travel-burden
     set constrained-score-sum constrained-score-sum + access-score
   ]
-
   set access-scores lput access-score access-scores
   set recorded? true
 end
@@ -646,13 +570,29 @@ end
 ;;
 to-report people-from-flow [flow]
   let n floor flow
-
   if random-float 1 < flow - n
   [
     set n n + 1
   ]
-
   report n
+end
+
+
+to-report percent [part whole]
+  if whole = 0
+  [
+    report 0
+  ]
+  report 100 * part / whole
+end
+
+
+to-report average-or-zero [total n]
+  if n = 0
+  [
+    report 0
+  ]
+  report total / n
 end
 
 
@@ -660,12 +600,7 @@ end
 ;; access rate for healthy people
 ;;
 to-report healthy-access-rate
-  if healthy-done = 0
-  [
-    report 0
-  ]
-
-  report 100 * healthy-accessed / healthy-done
+  report percent healthy-accessed healthy-done
 end
 
 
@@ -673,12 +608,7 @@ end
 ;; access rate for mobility-constrained people
 ;;
 to-report constrained-access-rate
-  if constrained-done = 0
-  [
-    report 0
-  ]
-
-  report 100 * constrained-accessed / constrained-done
+  report percent constrained-accessed constrained-done
 end
 
 
@@ -694,20 +624,8 @@ end
 ;; average travel burden gap between constrained and healthy people
 ;;
 to-report burden-gap
-  let healthy-burden 0
-  let constrained-burden 0
-
-  if healthy-done > 0
-  [
-    set healthy-burden healthy-burden-total / healthy-done
-  ]
-
-  if constrained-done > 0
-  [
-    set constrained-burden constrained-burden-total / constrained-done
-  ]
-
-  report constrained-burden - healthy-burden
+  report (average-or-zero constrained-burden-total constrained-done) -
+         (average-or-zero healthy-burden-total healthy-done)
 end
 
 
@@ -715,12 +633,7 @@ end
 ;; average burden-adjusted accessibility score for healthy people
 ;;
 to-report healthy-accessibility-score
-  if healthy-done = 0
-  [
-    report 0
-  ]
-
-  report healthy-score-sum / healthy-done
+  report average-or-zero healthy-score-sum healthy-done
 end
 
 
@@ -728,12 +641,7 @@ end
 ;; average burden-adjusted accessibility score for mobility-constrained people
 ;;
 to-report constrained-accessibility-score
-  if constrained-done = 0
-  [
-    report 0
-  ]
-
-  report constrained-score-sum / constrained-done
+  report average-or-zero constrained-score-sum constrained-done
 end
 
 
@@ -751,12 +659,7 @@ end
 ;; this is not the main result, but it can help describe the exemption scenario
 ;;
 to-report exemption-eligible-access-rate
-  if eligible-done = 0
-  [
-    report 0
-  ]
-
-  report 100 * eligible-accessed / eligible-done
+  report percent eligible-accessed eligible-done
 end
 
 
@@ -786,21 +689,18 @@ to-report accessibility-gini
   [
     report 0
   ]
-
   let weighted-sum 0
   let i 1
-
   foreach scores
   [
     s ->
     set weighted-sum weighted-sum + i * s
     set i i + 1
   ]
-
   report (2 * weighted-sum) / (n * total) - (n + 1) / n
 end]]></code>
   <widgets>
-    <view x="350" wrappingAllowedX="false" y="20" frameRate="30.0" minPycor="-16" height="499" showTickCounter="true" patchSize="15.0" fontSize="10" wrappingAllowedY="false" width="499" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
+    <view x="315" wrappingAllowedX="false" y="20" frameRate="30.0" minPycor="-16" height="499" showTickCounter="true" patchSize="15.0" fontSize="10" wrappingAllowedY="false" width="499" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="25" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
     <button x="85" y="20" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
     <chooser x="25" y="70" height="60" variable="scenario" current="2" width="210" display="scenario">
@@ -812,9 +712,13 @@ end]]></code>
     <slider x="25" step="0.1" y="190" max="5" width="250" display="constrained-access-flow" height="50" min="0" direction="Horizontal" default="1.0" variable="constrained-access-flow"></slider>
     <slider x="25" step="1" y="245" max="200" width="250" display="constrained-min-capacity" height="50" min="0" direction="Horizontal" default="80.0" variable="constrained-min-capacity"></slider>
     <slider x="25" step="1" y="300" max="200" width="250" display="constrained-max-capacity" height="50" min="0" direction="Horizontal" default="180.0" variable="constrained-max-capacity"></slider>
-    <slider x="25" step="1" y="355" max="500" width="250" display="max-active-people" height="50" min="0" direction="Horizontal" default="100.0" variable="max-active-people"></slider>
-    <monitor x="25" precision="17" y="415" height="60" fontSize="11" width="100">accessibility-inequality</monitor>
-    <plot x="880" autoPlotX="true" yMax="1.0" autoPlotY="true" y="25" xMin="0.0" height="175" legend="false" xMax="150.0" yMin="0.0" width="230" display="accessibility inequality">
+    <monitor x="860" precision="17" y="20" height="60" fontSize="11" width="100">accessibility-inequality</monitor>
+    <monitor x="970" precision="17" y="20" height="60" fontSize="11" width="100">accessibility-gini</monitor>
+    <monitor x="860" precision="17" y="90" height="60" fontSize="11" width="100">healthy-access-rate</monitor>
+    <monitor x="970" precision="17" y="90" height="60" fontSize="11" width="100">constrained-access-rate</monitor>
+    <monitor x="860" precision="17" y="160" height="60" fontSize="11" width="100">count turtles</monitor>
+    <monitor x="970" precision="17" y="160" height="60" fontSize="11" width="100">accessibility-inequality</monitor>
+    <plot x="860" autoPlotX="true" yMax="1.0" autoPlotY="true" y="230" xMin="0.0" height="175" legend="false" xMax="150.0" yMin="0.0" width="230" display="accessibility inequality">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="pen-1" color="-7500403" legend="true">
@@ -822,7 +726,7 @@ end]]></code>
         <update>plot accessibility-inequality</update>
       </pen>
     </plot>
-    <plot x="880" autoPlotX="true" yMax="10.0" autoPlotY="true" y="220" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="accessibility by group">
+    <plot x="1100" autoPlotX="true" yMax="10.0" autoPlotY="true" y="230" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="0.0" width="230" display="accessibility by group">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="default" color="-16777216" legend="true">
@@ -834,13 +738,9 @@ end]]></code>
         <update>plot constrained-accessibility-score</update>
       </pen>
     </plot>
-    <slider x="365" step="1" y="525" max="200" width="230" display="vehicle-need-threshold" height="50" min="0" direction="Horizontal" default="80.0" variable="vehicle-need-threshold"></slider>
-    <slider x="610" step="0.05" y="525" max="1" width="225" display="healthy-vehicle-probability" height="50" min="0" direction="Horizontal" default="0.6" variable="healthy-vehicle-probability"></slider>
-    <monitor x="25" precision="17" y="485" height="60" fontSize="11" width="100">count turtles</monitor>
-    <monitor x="130" precision="17" y="415" height="60" fontSize="11" width="100">accessibility-gini</monitor>
-    <monitor x="130" precision="17" y="485" height="60" fontSize="11" width="100">healthy-access-rate</monitor>
-    <monitor x="235" precision="17" y="415" height="60" fontSize="11" width="100">accessibility-inequality</monitor>
-    <monitor x="235" precision="17" y="485" height="60" fontSize="11" width="100">constrained-access-rate</monitor>
+    <slider x="25" step="1" y="360" max="500" width="250" display="max-active-people" height="50" min="0" direction="Horizontal" default="500.0" variable="max-active-people"></slider>
+    <slider x="25" step="1" y="420" max="200" width="250" display="vehicle-need-threshold" height="50" min="0" direction="Horizontal" default="80.0" variable="vehicle-need-threshold"></slider>
+    <slider x="25" step="0.05" y="480" max="1" width="250" display="healthy-vehicle-probability" height="50" min="0" direction="Horizontal" default="0.6" variable="healthy-vehicle-probability"></slider>
   </widgets>
   <info>## WHAT IS IT?
 
