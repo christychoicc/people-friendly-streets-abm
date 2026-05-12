@@ -19,7 +19,7 @@ globals
   healthy-move-cost                 ;; movement cost per step for healthy people
   constrained-move-cost             ;; movement cost per step for constrained people
   vehicle-move-cost                 ;; movement cost per step for travelling with vehicle
-  mode-switch-cost
+  mode-switch-cost                  ;; cost for switching transport mode 
   left-road-x                       ;; x-coord of the left vertical road
   center-road-x                     ;; x-coord of the centre of restricted road
   right-road-x                      ;; x-coord of the right vertical road
@@ -78,10 +78,9 @@ end
 ;;
 to set-defaults
   ;; agent capacity and movement cost assumptions
-;   set healthy-capacity 200             ;; assumption for healthy people
   set healthy-move-cost 1              ;; assumption for healthy people
   set constrained-move-cost 2          ;; assumption to represent higher mobility cost (Wert et al., 2013)
-  set vehicle-move-cost 0.5
+  set vehicle-move-cost 0.5            ;; assumption for cost of travelling by vehicle
   set mode-switch-cost 1.5             ;; add cost for switching between modes of transport
   ;; set coords for the simple road network
   set left-road-x -16
