@@ -20,16 +20,15 @@ globals
   constrained-move-cost             ;; movement cost per step for constrained people
   vehicle-move-cost                 ;; movement cost per step for travelling with vehicle
   mode-switch-cost
-  exemption-y                       ;; y-coord of the orange exemption patch
   left-road-x                       ;; x-coord of the left vertical road
   center-road-x                     ;; x-coord of the centre of restricted road
   right-road-x                      ;; x-coord of the right vertical road
   top-road-y                        ;; y-coord of the top horizontal road
   middle-road-y                     ;; y-coord of the middle horizontal road
   bottom-road-y                     ;; y-coord of the bottom horizontal road
-  road-width                        ;; set width of each road corridor
+  road-width                        ;; set width for road corridor
   zone-width                        ;; width of home and service zones
-  access-records                    ;; list of completed journey records: [group accessed? travel-burden access-score eligible-exemption?]
+  access-records                    ;; list of completed journey records
 ]
 
 ;; Agent types
@@ -44,7 +43,7 @@ turtles-own
   access-score                      ;; numbers 0-100 - accessibility score of a people
   ;; travel variables
   accessed?                         ;; boolean - whether the people accessed to the services patches
-  unable-to-access?                 ;; boolean - whether the people failed to access to the services patches
+  failed-to-access?                 ;; boolean - whether the people failed to access to the services patches
   recorded?                         ;; boolean - whether results have been recorded
   ;; mode of travel and policy relevant variables
   using-vehicle?                    ;; boolean - whether the people are travelling with vehicle
@@ -79,13 +78,12 @@ end
 ;;
 to set-defaults
   ;; agent capacity and movement cost assumptions
-  set healthy-capacity 200             ;; assumption for healthy people
+;   set healthy-capacity 200             ;; assumption for healthy people
   set healthy-move-cost 1              ;; assumption for healthy people
-  set constrained-move-cost 3.5        ;; assumption to represent higher mobility cost (Wert et al., 2013)
+  set constrained-move-cost 2          ;; assumption to represent higher mobility cost (Wert et al., 2013)
   set vehicle-move-cost 0.5
-  set mode-switch-cost 2               ;; add cost for switching between modes of transport
+  set mode-switch-cost 1.5             ;; add cost for switching between modes of transport
   ;; set coords for the simple road network
-  set exemption-y 0
   set left-road-x -16
   set center-road-x 0
   set right-road-x 16
@@ -93,7 +91,7 @@ to set-defaults
   set middle-road-y 0
   set bottom-road-y -12
   ;; set width for roads and origin/ destination zones
-  set road-width 0
+  set road-width 1                     ;; road to set to 1 patch wide
   set zone-width 2
   ;; reset accessed records
   set access-records []
@@ -118,12 +116,12 @@ to setup-patches
   ;; create road network, coloured as grey
   ask patches with
   [
-    abs (pycor - top-road-y) <= road-width or
-    abs (pycor - middle-road-y) <= road-width or
-    abs (pycor - bottom-road-y) <= road-width or
-    abs (pxcor - left-road-x) <= road-width or
-    abs (pxcor - center-road-x) <= road-width or
-    abs (pxcor - right-road-x) <= road-width
+    pycor = top-road-y or
+    pycor = middle-road-y or
+    pycor = bottom-road-y or
+    pxcor = left-road-x or
+    pxcor = center-road-x or
+    pxcor = right-road-x
   ]
   [
     set road? true
@@ -132,14 +130,14 @@ to setup-patches
   ;; set horizontal roads
   ask patches with
   [
-    abs (pycor - top-road-y) <= road-width or
-    abs (pycor - middle-road-y) <= road-width or
-    abs (pycor - bottom-road-y) <= road-width
+    pycor = top-road-y or
+    pycor = middle-road-y or
+    pycor = bottom-road-y
   ]
   [
     set horizontal-road? true
   ]
-  ;; set origin, home patches to be on the left side of the world
+  ;; set origin home patches to be on the left side of the world
   ask patches with
   [
     road? and
@@ -149,7 +147,7 @@ to setup-patches
   [
     set home? true
   ]
-  ;; set destination, service patches to be on the right side of the world
+  ;; set destination service patches to be on the right side of the world
   ask patches with
   [
     road? and
@@ -166,23 +164,23 @@ to setup-patches
   [
     ask patches with
     [
-      abs (pxcor - center-road-x) <= road-width and road?
+      pxcor = center-road-x and road?
     ]
     [
       set restricted? true
       set pcolor red
     ]
   ]
-  ;; create exemption crossing patches in individual exemption scenario
-  ;; this covers the full width of the restricted centre road corridor as well, colour painted as yellow
+;   ;; create exemption point patches in individual exemption scenario
+;   ;; this covers the full width of the restricted centre road corridor as well, colour painted as yellow
+  ;; to represent multiple authorised access points across the restricted corridor
   if scenario = "individual-exemption"
   [
     ask patches with
     [
-      abs (pxcor - center-road-x) <= road-width and
-      pycor >= exemption-y - road-width and
-      pycor <= exemption-y + road-width and
-      road?
+      pxcor = center-road-x and
+      road? and
+      horizontal-road?
     ]
     [
       set exemption? true
@@ -199,14 +197,14 @@ to go
   ;; create new people entering the model world
   create-access-flow
   ;; continue to move, check accessed or failed to access
-  ask turtles with [not accessed? and not unable-to-access?]
+  ask turtles with [not accessed? and not failed-to-access?]
   [
     move-one-step
     check-access
     check-failure
   ]
   ;; if failed and results recorded allow continue to move and leave the model
-  ask turtles with [unable-to-access? and recorded?]
+  ask turtles with [failed-to-access? and recorded?]
   [
     leave-after-access
   ]
@@ -216,7 +214,7 @@ to go
     leave-after-access
   ]
   ;; any found failed to access services to be recorded and coloured in red
-  ask turtles with [unable-to-access? and not recorded?]
+  ask turtles with [failed-to-access? and not recorded?]
   [
     set color red
     record-result
@@ -246,7 +244,7 @@ to create-access-flow
     [
       home? and
       horizontal-road? and
-      abs (pxcor - left-road-x) <= road-width and
+      pxcor = left-road-x and
       not any? turtles-here
     ]
     [
@@ -266,7 +264,7 @@ to create-person [people-type]
   [
     home? and
     horizontal-road? and
-    abs (pxcor - left-road-x) <= road-width and
+    pxcor = left-road-x and
     not any? turtles-here
   ]
   ;; don't create a new people if patch is unavailable
@@ -279,7 +277,13 @@ to create-person [people-type]
   [
     create-healthy-peoples 1
     [
-      initialise-person one-of starts green healthy-capacity
+      let cap healthy-min-capacity
+      if healthy-max-capacity > healthy-min-capacity
+      [
+        set cap healthy-min-capacity +
+        random-float (healthy-max-capacity - healthy-min-capacity)
+      ]
+      initialise-person one-of starts green cap
     ]
   ]
   ;; create constrained people as orange
@@ -315,7 +319,7 @@ to initialise-person [start-patch start-color capacity]
   set travel-burden 0
   set access-score 0
   set accessed? false
-  set unable-to-access? false
+  set failed-to-access? false
   set recorded? false
   set using-vehicle? false
   set eligible-exemption? false
@@ -353,17 +357,6 @@ end
 ;; move one step towards services
 ;;
 to move-one-step
-  ;; move right to destination direction if in basline/ people friendly street scenario
-  ;; but if in individual exemption eligible vehicle users first move up/down to the middle road so that they can direct to the exemption patches
-  if scenario = "individual-exemption"
-  [
-    if using-vehicle? and eligible-exemption? and pycor != exemption-y
-    [
-      move-towards-exemption
-      stop
-    ]
-  ]
-
   move-right
 end
 
@@ -378,35 +371,13 @@ end
 
 
 ;;
-;; move towards exemption
-;;
-to move-towards-exemption
-  let target nobody
-  let new-heading heading
-  ;; move one patch upwards if below exemption on y coords
-  if pycor < exemption-y
-  [
-    set target patch-at 0 1
-    set new-heading 0
-  ]
-  ;; move one patch downwards if above exemption on y coords
-  if pycor > exemption-y
-  [
-    set target patch-at 0 -1
-    set new-heading 180
-  ]
-  move-to-target target new-heading
-end
-
-
-;;
 ;; move to target steps
 ;;
 to move-to-target [target new-heading]
   ;; if target does not exist, the person cannot continue
   if target = nobody
   [
-    set unable-to-access? true
+    set failed-to-access? true
     set color red
     stop
   ]
@@ -421,7 +392,7 @@ to move-to-target [target new-heading]
   ;; if cannot reach exemption corridor and unable to enter and access with switch mode of transport, set to fail and colour red
   if not can-enter? target
   [
-    set unable-to-access? true
+    set failed-to-access? true
     set color red
     stop
   ]
@@ -430,7 +401,7 @@ to move-to-target [target new-heading]
   ;; if the people next move will exceed capacity, they fail before moving
   if travel-burden + cost > mobility-capacity
   [
-    set unable-to-access? true
+    set failed-to-access? true
     set color red
     stop
   ]
@@ -649,7 +620,7 @@ to check-failure
   ;; if have not accessed and used up mobility capacity will be failed and colour change to red
   if not accessed? and travel-burden >= mobility-capacity
   [
-    set unable-to-access? true
+    set failed-to-access? true
     set color red
   ]
 end
@@ -800,11 +771,9 @@ end]]></code>
       <choice type="string" value="people-friendly-streets"></choice>
       <choice type="string" value="individual-exemption"></choice>
     </chooser>
-    <slider x="25" step="10" y="140" max="100" width="250" display="constrained-access-flow" height="50" min="0" direction="Horizontal" default="30.0" variable="constrained-access-flow"></slider>
-    <slider x="25" step="1" y="200" max="200" width="250" display="constrained-min-capacity" height="50" min="0" direction="Horizontal" default="80.0" variable="constrained-min-capacity"></slider>
-    <slider x="25" step="1" y="260" max="200" width="250" display="constrained-max-capacity" height="50" min="0" direction="Horizontal" default="180.0" variable="constrained-max-capacity"></slider>
-    <slider x="25" step="5" y="320" max="100" width="250" display="exemption-uptake-rate" height="50" min="5" direction="Horizontal" default="20.0" variable="exemption-uptake-rate"></slider>
-    <slider x="25" step="1" y="380" max="500" width="250" display="max-active-population" height="50" min="0" direction="Horizontal" default="462.0" variable="max-active-population"></slider>
+    <slider x="25" step="10" y="140" max="100" width="250" display="constrained-access-flow" height="50" min="0" direction="Horizontal" default="10.0" variable="constrained-access-flow"></slider>
+    <slider x="25" step="10" y="200" max="250" width="250" display="constrained-min-capacity" height="50" min="0" direction="Horizontal" default="30.0" variable="constrained-min-capacity"></slider>
+    <slider x="25" step="10" y="260" max="250" width="250" display="constrained-max-capacity" height="50" min="0" direction="Horizontal" default="90.0" variable="constrained-max-capacity"></slider>
     <monitor x="860" precision="17" y="20" height="60" fontSize="11" width="150">count turtles</monitor>
     <monitor x="860" precision="17" y="90" height="60" fontSize="11" width="150">healthy-access-rate</monitor>
     <plot x="860" autoPlotX="true" yMax="100.0" autoPlotY="true" y="165" xMin="0.0" height="175" legend="false" xMax="100.0" yMin="0.0" width="230" display="accessibility inequality">
@@ -829,6 +798,10 @@ end]]></code>
     </plot>
     <monitor x="1020" precision="17" y="20" height="60" fontSize="11" width="155">accessibility-inequality</monitor>
     <monitor x="1020" precision="17" y="90" height="60" fontSize="11" width="155">constrained-access-rate</monitor>
+    <slider x="25" step="10" y="320" max="250" width="250" display="healthy-min-capacity" height="50" min="0" direction="Horizontal" default="100.0" variable="healthy-min-capacity"></slider>
+    <slider x="25" step="10" y="380" max="250" width="250" display="healthy-max-capacity" height="50" min="0" direction="Horizontal" default="180.0" variable="healthy-max-capacity"></slider>
+    <slider x="25" step="5" y="440" max="100" width="250" display="exemption-uptake-rate" height="50" min="5" direction="Horizontal" default="25.0" variable="exemption-uptake-rate"></slider>
+    <slider x="25" step="1" y="500" max="500" width="250" display="max-active-population" height="50" min="0" direction="Horizontal" default="500.0" variable="max-active-population"></slider>
   </widgets>
   <info>## WHAT IS IT?
 
